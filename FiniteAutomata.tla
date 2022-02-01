@@ -1,6 +1,6 @@
 ---------------------------- MODULE FiniteAutomata ----------------------------
 
-EXTENDS TLC
+EXTENDS TLC, Sequences
 
 \* Finite automata structure and methods
 
@@ -20,7 +20,7 @@ AutomataProduct(nfa1, nfa2) ==
     LET newIDs      == StateIds(nfa1) \X StateIds(nfa2)
         newAlphabet == nfa1.alphabet \intersect nfa2.alphabet
         newInitial  == nfa1.initial \X nfa2.initial
-        newFinal    == {}
+        newFinal    == nfa1.final \X nfa2.final
         newStates   == [from \in newIDs |-> [dest \in newIDs |->
                         {label \in newAlphabet:
                             /\ dest[1] \in DOMAIN Transitions(nfa1, from[1])
@@ -36,6 +36,19 @@ RemoveEmptyTransitions(nfa) ==
                         [dest \in {dest_aux \in stateIds: TransitionLabel(nfa, from, dest_aux) # {}}
                             |-> TransitionLabel(nfa, from, dest)]]
     IN NFA(nfa.alphabet, nfa.initial, nfa.final, newStates) 
+
+RECURSIVE Path_aux(_, _, _, _)
+Path_aux(nfa, from, dest, visited) ==
+            IF from = dest THEN <<dest>>
+            ELSE LET paths == 
+                    {path \in {Path_aux(nfa, state, dest, visited \union {state}):
+                            state \in (DOMAIN Transitions(nfa, from) \ visited)}:
+                        path # <<>>}
+                 IN IF paths = {} THEN <<>>
+                    ELSE LET path == CHOOSE p \in paths: TRUE
+                         IN <<from>> \o path
+
+Path(nfa, state1, state2) == Path_aux(nfa, state1, state2, {state1})
 
 -------------------------------------------------------------------------------
 
@@ -74,9 +87,19 @@ ENFA ==
         n2 |-> [n0 |-> {"a"}]
     ])
 
+Example ==
+    NFA({"a","b"}, {n0},{n2}, [
+        n0 |-> [n1 |-> {"a"}],
+        n1 |-> [n0 |-> {"b"}, n2 |-> {"a"}],
+        n2 |-> <<>>
+    ])
+
 -------------------------------------------------------------------------------
 
 \* Test
+
+ASSUME PrintT(Example)
+ASSUME PrintT(Path(Example, n0, n2))
 
 ASSUME PrintT(RemoveEmptyTransitions(AutomataProduct(UFA, UFA)))
 ASSUME PrintT(RemoveEmptyTransitions(AutomataProduct(FNFA, FNFA)))
