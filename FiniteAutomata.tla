@@ -16,11 +16,13 @@ Transitions(nfa, state) == nfa.states[state]
 
 TransitionLabel(nfa, from, dest) == nfa.states[from][dest]
 
+NonEmptyPeers(nfa, from) ==
+    {dest \in DOMAIN Transitions(nfa, from): TransitionLabel(nfa, from, dest) # {}}
+
 RemoveEmptyTransitions(nfa) ==
     LET stateIds  == StateIds(nfa) 
-        newStates == [from \in stateIds |->
-                        [dest \in {dest_aux \in DOMAIN Transitions(nfa, from): TransitionLabel(nfa, from, dest_aux) # {}}
-                            |-> TransitionLabel(nfa, from, dest)]]
+        newStates == [from \in stateIds |-> [dest \in NonEmptyPeers(nfa, from)
+                        |-> TransitionLabel(nfa, from, dest)]]
     IN NFA(nfa.alphabet, nfa.initial, nfa.final, newStates) 
 
 AutomataProduct(nfa1, nfa2) ==
