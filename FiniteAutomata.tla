@@ -16,6 +16,13 @@ Transitions(nfa, state) == nfa.states[state]
 
 TransitionLabel(nfa, from, dest) == nfa.states[from][dest]
 
+RemoveEmptyTransitions(nfa) ==
+    LET stateIds  == StateIds(nfa) 
+        newStates == [from \in stateIds |->
+                        [dest \in {dest_aux \in DOMAIN Transitions(nfa, from): TransitionLabel(nfa, from, dest_aux) # {}}
+                            |-> TransitionLabel(nfa, from, dest)]]
+    IN NFA(nfa.alphabet, nfa.initial, nfa.final, newStates) 
+
 AutomataProduct(nfa1, nfa2) ==
     LET newIDs      == StateIds(nfa1) \X StateIds(nfa2)
         newAlphabet == nfa1.alphabet \intersect nfa2.alphabet
@@ -28,14 +35,7 @@ AutomataProduct(nfa1, nfa2) ==
                             /\ label \in TransitionLabel(nfa1, from[1], dest[1])
                             /\ label \in TransitionLabel(nfa2, from[2], dest[2])
                         }]]
-    IN NFA(newAlphabet, newInitial, newFinal, newStates)
-
-RemoveEmptyTransitions(nfa) ==
-    LET stateIds  == StateIds(nfa) 
-        newStates == [from \in stateIds |->
-                        [dest \in {dest_aux \in stateIds: TransitionLabel(nfa, from, dest_aux) # {}}
-                            |-> TransitionLabel(nfa, from, dest)]]
-    IN NFA(nfa.alphabet, nfa.initial, nfa.final, newStates) 
+    IN RemoveEmptyTransitions(NFA(newAlphabet, newInitial, newFinal, newStates))
 
 RECURSIVE Path_aux(_, _, _, _)
 Path_aux(nfa, from, dest, visited) ==
@@ -50,6 +50,11 @@ Path_aux(nfa, from, dest, visited) ==
 
 Path(nfa, state1, state2) == Path_aux(nfa, state1, state2, {state1})
 
+StateIsUseful(nfa, state) ==
+    \E initial \in nfa.initial: \E final \in nfa.final:
+        /\ Path(nfa, initial, state) # <<>>
+        /\ Path(nfa, state, final)   # <<>>
+
 -------------------------------------------------------------------------------
 
 \* Sample finite automata
@@ -57,6 +62,7 @@ Path(nfa, state1, state2) == Path_aux(nfa, state1, state2, {state1})
 n0 == "n0"
 n1 == "n1"
 n2 == "n2"
+n3 == "n3"
 
 \* unambiguous automaton
 UFA == 
@@ -89,9 +95,10 @@ ENFA ==
 
 Example ==
     NFA({"a","b"}, {n0},{n2}, [
-        n0 |-> [n1 |-> {"a"}],
+        n0 |-> [n1 |-> {"a"}, n3 |-> {"b"}],
         n1 |-> [n0 |-> {"b"}, n2 |-> {"a"}],
-        n2 |-> <<>>
+        n2 |-> <<>>,
+        n3 |-> <<>>
     ])
 
 -------------------------------------------------------------------------------
@@ -100,10 +107,11 @@ Example ==
 
 ASSUME PrintT(Example)
 ASSUME PrintT(Path(Example, n0, n2))
+ASSUME PrintT(StateIsUseful(Example, n3))
 
-ASSUME PrintT(RemoveEmptyTransitions(AutomataProduct(UFA, UFA)))
-ASSUME PrintT(RemoveEmptyTransitions(AutomataProduct(FNFA, FNFA)))
-ASSUME PrintT(RemoveEmptyTransitions(AutomataProduct(PNFA, PNFA)))
-ASSUME PrintT(RemoveEmptyTransitions(AutomataProduct(ENFA, ENFA)))
+ASSUME PrintT(AutomataProduct(UFA, UFA))
+ASSUME PrintT(AutomataProduct(FNFA, FNFA))
+ASSUME PrintT(AutomataProduct(PNFA, PNFA))
+ASSUME PrintT(AutomataProduct(ENFA, ENFA))
 
 ===============================================================================
