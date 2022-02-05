@@ -16,12 +16,12 @@ Transitions(nfa, state) == nfa.states[state]
 
 TransitionLabel(nfa, from, dest) == nfa.states[from][dest]
 
-NonEmptyPeers(nfa, from) ==
+TransitionsNotEmpty(nfa, from) ==
     {dest \in DOMAIN Transitions(nfa, from): TransitionLabel(nfa, from, dest) # {}}
 
 RemoveEmptyTransitions(nfa) ==
     LET stateIds  == StateIds(nfa) 
-        newStates == [from \in stateIds |-> [dest \in NonEmptyPeers(nfa, from)
+        newStates == [from \in stateIds |-> [dest \in TransitionsNotEmpty(nfa, from)
                         |-> TransitionLabel(nfa, from, dest)]]
     IN NFA(nfa.alphabet, nfa.initial, nfa.final, newStates) 
 
@@ -56,6 +56,42 @@ StateIsUseful(nfa, state) ==
     \E initial \in nfa.initial: \E final \in nfa.final:
         /\ Path(nfa, initial, state) # <<>>
         /\ Path(nfa, state, final)   # <<>>
+
+Trim(nfa) ==
+    LET usefulStates == {s \in StateIds(nfa): StateIsUseful(nfa, s)}
+    IN NFA(
+        nfa.alphabet,
+        nfa.initial \intersect usefulStates,
+        nfa.final \intersect usefulStates,
+        [state \in usefulStates |-> nfa.states[state]]
+    )
+
+InSameComponent(nfa, state1, state2) ==
+    /\ Path(nfa, state1, state2) # <<>>
+    /\ Path(nfa, state2, state1) # <<>> 
+
+AmbiguityTest(nfa) ==
+    LET conj == Trim(AutomataProduct(nfa,nfa))
+    IN \E s \in StateIds(conj): s[1] # s[2]    
+
+EDATest(nfa) ==
+    LET conj     == Trim(AutomataProduct(nfa,nfa))
+        stateIds == StateIds(conj)
+    IN  \E state1 \in stateIds: \E state2 \in stateIds:
+            /\ state1 # state2
+            /\ InSameComponent(conj, state1, state2)
+            /\ state1[1] = state1[2]
+            /\ state2[1] # state2[2]
+
+IDATest(nfa) ==
+    LET conj     == Trim(AutomataProduct(nfa,nfa))
+        conj2    == Trim(AutomataProduct(conj,nfa))
+        stateIds == StateIds(nfa)
+    IN  \E p \in stateIds: \E q \in stateIds:
+            /\ p # q
+            /\ <<<<p,p>>,q>> \in StateIds(conj2)
+            /\ <<<<p,q>>,q>> \in StateIds(conj2)
+            /\ Path(conj2, <<<<p,p>>,q>>, <<<<p,q>>,q>>) # <<>>
 
 -------------------------------------------------------------------------------
 
@@ -107,13 +143,25 @@ Example ==
 
 \* Test
 
-ASSUME PrintT(Example)
-ASSUME PrintT(Path(Example, n0, n2))
-ASSUME PrintT(StateIsUseful(Example, n3))
+ASSUME PrintT("AmbiguityTest")
 
-ASSUME PrintT(AutomataProduct(UFA, UFA))
-ASSUME PrintT(AutomataProduct(FNFA, FNFA))
-ASSUME PrintT(AutomataProduct(PNFA, PNFA))
-ASSUME PrintT(AutomataProduct(ENFA, ENFA))
+ASSUME PrintT(AmbiguityTest(UFA))
+ASSUME PrintT(AmbiguityTest(FNFA))
+ASSUME PrintT(AmbiguityTest(PNFA))
+ASSUME PrintT(AmbiguityTest(ENFA))
+
+ASSUME PrintT("EDATest")
+
+ASSUME PrintT(EDATest(UFA))
+ASSUME PrintT(EDATest(FNFA))
+ASSUME PrintT(EDATest(PNFA))
+ASSUME PrintT(EDATest(ENFA))
+
+ASSUME PrintT("IDATest")
+
+ASSUME PrintT(IDATest(UFA))
+ASSUME PrintT(IDATest(FNFA))
+ASSUME PrintT(IDATest(PNFA))
+ASSUME PrintT(IDATest(ENFA))
 
 ===============================================================================
