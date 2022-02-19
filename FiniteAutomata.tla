@@ -1,6 +1,6 @@
 ---------------------------- MODULE FiniteAutomata ----------------------------
 
-EXTENDS TLC, Sequences
+EXTENDS TLC, Sequences, FiniteSetsExt
 
 \* Finite automata structure and methods
 
@@ -12,43 +12,32 @@ NFA(alphabet, initial, final, states) ==
 
 StateIds(nfa) == DOMAIN nfa.states
 
-Transitions(nfa, state) == nfa.states[state]
+StateLabels(nfa, state) == DOMAIN nfa.states[state]
 
-TransitionLabel(nfa, from, dest) == nfa.states[from][dest]
-
-TransitionsNotEmpty(nfa, from) ==
-    {dest \in DOMAIN Transitions(nfa, from): TransitionLabel(nfa, from, dest) # {}}
-
-RemoveEmptyTransitions(nfa) ==
-    LET stateIds  == StateIds(nfa) 
-        newStates == [from \in stateIds |-> [dest \in TransitionsNotEmpty(nfa, from)
-                        |-> TransitionLabel(nfa, from, dest)]]
-    IN NFA(nfa.alphabet, nfa.initial, nfa.final, newStates) 
+ReachableFromState(nfa, from) ==
+    FlattenSet({nfa.states[from][label]: label \in StateLabels(nfa, from)})
 
 AutomataProduct(nfa1, nfa2) ==
     LET newIDs      == StateIds(nfa1) \X StateIds(nfa2)
         newAlphabet == nfa1.alphabet \intersect nfa2.alphabet
         newInitial  == nfa1.initial \X nfa2.initial
         newFinal    == nfa1.final \X nfa2.final
-        newStates   == [from \in newIDs |-> [dest \in newIDs |->
-                        {label \in newAlphabet:
-                            /\ dest[1] \in DOMAIN Transitions(nfa1, from[1])
-                            /\ dest[2] \in DOMAIN Transitions(nfa2, from[2])
-                            /\ label \in TransitionLabel(nfa1, from[1], dest[1])
-                            /\ label \in TransitionLabel(nfa2, from[2], dest[2])
-                        }]]
-    IN RemoveEmptyTransitions(NFA(newAlphabet, newInitial, newFinal, newStates))
+        newStates   == [from \in newIDs |-> [label \in 
+                        StateLabels(nfa1, from[1]) \intersect StateLabels(nfa2, from[2]) |-> 
+                            {dest \in newIDs:
+                                /\ dest[1] \in nfa1.states[from[1]][label]
+                                /\ dest[2] \in nfa2.states[from[2]][label]
+                            }]]
+    IN NFA(newAlphabet, newInitial, newFinal, newStates)
 
 RECURSIVE Path_aux(_, _, _, _)
 Path_aux(nfa, from, dest, visited) ==
             IF from = dest THEN <<dest>>
-            ELSE LET paths == 
-                    {path \in {Path_aux(nfa, state, dest, visited \union {state}):
-                            state \in (DOMAIN Transitions(nfa, from) \ visited)}:
-                        path # <<>>}
-                 IN IF paths = {} THEN <<>>
-                    ELSE LET path == CHOOSE p \in paths: TRUE
-                         IN <<from>> \o path
+            ELSE LET paths == {Path_aux(nfa, state, dest, visited \union {state}):
+                                state \in (ReachableFromState(nfa, from) \ visited)}
+                IN IF \E path \in paths: path # <<>>
+                   THEN <<from>> \o (CHOOSE path \in paths: TRUE)
+                   ELSE <<>>
 
 Path(nfa, state1, state2) == Path_aux(nfa, state1, state2, {state1})
 
@@ -97,44 +86,48 @@ IDATest(nfa) ==
 
 \* Sample finite automata
 
+a == "a"
+b == "b"
+
 n0 == "n0"
 n1 == "n1"
 n2 == "n2"
 n3 == "n3"
 
-\* unambiguous automaton
+\* unambiguous automaton example
 UFA == 
-    NFA({"a"}, {n0}, {n0}, [
-        n0 |-> [n0 |-> {"a"}]
+    NFA({a}, {n0}, {n0}, [
+        n0 |-> [a |-> {n0}]
     ])
 
-\* finitely ambiguous automaton
+\* finitely ambiguous automaton example
 FNFA ==
-    NFA({"a"}, {n0}, {n1,n2}, [
-        n0 |-> [n1 |-> {"a"}, n2 |-> {"a"}],
-        n1 |-> [n1 |-> {"a"}],
-        n2 |-> [n2 |-> {"a"}]
+    NFA({a}, {n0}, {n1,n2}, [
+        n0 |-> [a |-> {n1,n2}],
+        n1 |-> [a |-> {n1}],
+        n2 |-> [a |-> {n2}]
     ])
 
-\* polynomially ambiguous automaton
+\* polynomially ambiguous automaton example
 PNFA ==
-    NFA({"a"}, {n0}, {n1},[
-        n0 |-> [n0 |-> {"a"}, n1 |-> {"a"}],
-        n1 |-> [n1 |-> {"a"}]
+    NFA({a}, {n0}, {n1},[
+        n0 |-> [a |-> {n0,n1}],
+        n1 |-> [a |-> {n1}]
     ])
 
-\* exponentially ambiguous automaton
+\* exponentially ambiguous automaton example
 ENFA ==
-    NFA({"a"}, {n0}, {n0},[
-        n0 |-> [n1 |-> {"a"}, n2 |-> {"a"}],
-        n1 |-> [n0 |-> {"a"}],
-        n2 |-> [n0 |-> {"a"}]
+    NFA({a}, {n0}, {n0},[
+        n0 |-> [a |-> {n1,n2}],
+        n1 |-> [a |-> {n0}],
+        n2 |-> [a |-> {n0}]
     ])
 
+\* random example automaton
 Example ==
-    NFA({"a","b"}, {n0},{n2}, [
-        n0 |-> [n1 |-> {"a"}, n3 |-> {"b"}],
-        n1 |-> [n0 |-> {"b"}, n2 |-> {"a"}],
+    NFA({a,b}, {n0},{n2}, [
+        n0 |-> [a |-> {n1}, b |-> {n3}],
+        n1 |-> [a |-> {n2}, b |-> {n0}],
         n2 |-> <<>>,
         n3 |-> <<>>
     ])
