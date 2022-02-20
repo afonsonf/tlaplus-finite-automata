@@ -3,7 +3,7 @@
 EXTENDS TLC, FiniteSetsExt
 
 FiniteAutomata == INSTANCE FiniteAutomata
-NFA == FiniteAutomata!PNFA
+NFA == FiniteAutomata!FNFA
 
 VARIABLE DFA_alphabet
 VARIABLE DFA_initial
@@ -18,27 +18,23 @@ empty == {"empty"}
 
 Init == 
     /\ DFA_alphabet = NFA.alphabet
-    /\ DFA_initial  = {{s} : s \in NFA.initial}
+    /\ DFA_initial  = {NFA.initial}
     /\ DFA_final    = {}
     /\ DFA_states    = <<>>
     /\ toExpand     = {NFA.initial}
 
 addTransition(states, from, token, dest) ==
-    IF from \in DOMAIN states
-    THEN [state \in DOMAIN states |->
+    LET existPrev == from \in DOMAIN states
+    IN  [state \in (DOMAIN states \union {from}) |->
             IF state # from
             THEN states[state]
             ELSE [t \in DFA_alphabet |->
                     IF t # token
-                    THEN states[from][t]
-                    ELSE {dest} \union states[from][t] ]]
-    ELSE [state \in (DOMAIN states \union {from}) |->
-            IF state # from
-            THEN states[state]
-            ELSE [t \in DFA_alphabet |->
-                    IF t # token
-                    THEN {}
-                    ELSE {dest}]]
+                    THEN IF existPrev /\ t \in DOMAIN states[from]
+                         THEN states[from][t] ELSE {}
+                    ELSE IF existPrev /\ token \in DOMAIN states[from]
+                         THEN {dest} \union states[from][token]
+                         ELSE {dest}]]
 
 RECURSIVE expandTokens(_, _, _, _)
 expandTokens(stateToExpand, tokens, leftToExpand, states) ==
@@ -46,13 +42,14 @@ expandTokens(stateToExpand, tokens, leftToExpand, states) ==
     THEN /\ toExpand' = (toExpand \ {stateToExpand}) \union leftToExpand
          /\ DFA_states' = states
     ELSE
-        LET token     == CHOOSE t \in tokens: TRUE
-            fromToken == FlattenSet({NFA.states[n][token]: n \in stateToExpand})
-
+        LET token      == CHOOSE t \in tokens: TRUE
+            fromToken_ == FlattenSet({NFA.states[n][token]:
+                n \in {s \in stateToExpand \ empty: token \in DOMAIN NFA.states[s]}})
+            fromToken  == IF fromToken_ = {} THEN empty ELSE fromToken_
             newStates  == addTransition(states, stateToExpand, token, fromToken)
-            toExpand_ == IF fromToken \in DOMAIN DFA_states
-                         THEN {} ELSE {fromToken}
-        IN  expandTokens(
+            toExpand_  == IF fromToken \in DOMAIN DFA_states
+                          THEN {} ELSE {fromToken}
+        IN  /\ expandTokens(
                 stateToExpand,
                 tokens \ {token},
                 leftToExpand \union toExpand_,
@@ -66,11 +63,14 @@ expand(stateToExpand) ==
 
 
 Next ==
-    /\ toExpand # {}
     /\ LET state == CHOOSE n \in toExpand: TRUE
        IN  expand(state)
     /\ UNCHANGED <<DFA_alphabet,DFA_initial>>
-    /\ PrintT(DFA)
-    /\ PrintT(FiniteAutomata!AmbiguityTest(DFA))
+
+Inv == toExpand # {}
+
+Alias ==[toExpand |-> toExpand,
+         dfa |-> DFA,
+         test |-> FiniteAutomata!AmbiguityTest(DFA)]
 
 ===============================================================================
