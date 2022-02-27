@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Automaton</title>
+
+<style type="text/css">
+.default_grid {
+display: grid;
+}
+.default_box {
+border: 1px solid black;
+}
+.default_circle {
+border-radius: 50%;
+}
+.ClassInfo {
+margin: auto;
+border-bottom: 0px;
+text-align: center;
+}
+.ClassPage {
+margin: auto;
+}
+</style>
+</head>
+<body>
+<div id="layout">
+<div id="info" class="default_box ClassInfo" style="width: 90%; height: 100%;">
+Initial State: Square node || Final State: Green node
+</div>
+<div id="page" class="default_box ClassPage" style="width: 90%; height: 400px;">
+
+</div>
+</div>
+</body>
+<script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+<script>
+var nodes = new vis.DataSet([ 
+{ id: "n1", label: "   n1   ", color: {border: "black", background: "lightgreen"}, shape: "ellipse", borderWidth: 2, margin: {top: 10, bottom: 10} },
+{ id: "n0", label: "   n0   ", color: {border: "black", background: "lightblue"}, shape: "box", borderWidth: 2, margin: {top: 10, bottom: 10} },
+]);
+var edges = new vis.DataSet([ 
+{ from: "n1", to: "n1", label: "a", arrows: "to"},
+{ from: "n0", to: "n0", label: "a", arrows: "to"},
+{ from: "n0", to: "n1", label: "a", arrows: "to"},
+]);
+var container = document.getElementById("page");
+var data = { nodes: nodes, edges: edges }; 
+var options = {}; 
+var network = new vis.Network(container, data, options);
+</script>
+</html>

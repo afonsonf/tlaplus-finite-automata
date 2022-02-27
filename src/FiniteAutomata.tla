@@ -6,13 +6,16 @@ EXTENDS TLC, Sequences, FiniteSetsExt
 
 NFA(alphabet, initial, final, states) ==
     [alphabet |-> alphabet,
-     initial  |-> initial, 
-     final    |-> final, 
+     initial  |-> initial,
+     final    |-> final,
      states   |-> states]
 
 StateIds(nfa) == DOMAIN nfa.states
 
 StateLabels(nfa, state) == DOMAIN nfa.states[state]
+
+TransitionLabel(nfa, from, dest) ==
+    CHOOSE label \in nfa.alphabet: dest \in nfa.states[from][label]
 
 ReachableFromState(nfa, from) ==
     FlattenSet({nfa.states[from][label]: label \in StateLabels(nfa, from)})
@@ -22,8 +25,8 @@ AutomataProduct(nfa1, nfa2) ==
         newAlphabet == nfa1.alphabet \intersect nfa2.alphabet
         newInitial  == nfa1.initial \X nfa2.initial
         newFinal    == nfa1.final \X nfa2.final
-        newStates   == [from \in newIDs |-> [label \in 
-                        StateLabels(nfa1, from[1]) \intersect StateLabels(nfa2, from[2]) |-> 
+        newStates   == [from \in newIDs |-> [label \in
+                        StateLabels(nfa1, from[1]) \intersect StateLabels(nfa2, from[2]) |->
                             {dest \in newIDs:
                                 /\ dest[1] \in nfa1.states[from[1]][label]
                                 /\ dest[2] \in nfa2.states[from[2]][label]
@@ -57,11 +60,11 @@ Trim(nfa) ==
 
 InSameComponent(nfa, state1, state2) ==
     /\ Path(nfa, state1, state2) # <<>>
-    /\ Path(nfa, state2, state1) # <<>> 
+    /\ Path(nfa, state2, state1) # <<>>
 
 AmbiguityTest(nfa) ==
     LET conj == Trim(AutomataProduct(nfa,nfa))
-    IN \E s \in StateIds(conj): s[1] # s[2]    
+    IN \E s \in StateIds(conj): s[1] # s[2]
 
 EDATest(nfa) ==
     LET conj     == Trim(AutomataProduct(nfa,nfa))
@@ -95,7 +98,7 @@ n2 == "n2"
 n3 == "n3"
 
 \* unambiguous automaton example
-UFA == 
+UFA ==
     NFA({a}, {n0}, {n0}, [
         n0 |-> [a |-> {n0}]
     ])
